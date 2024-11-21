@@ -1,0 +1,182 @@
+
+---
+title: "Figure 4"
+author: "lauryn davis"
+date: "6/27/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+
+```{r}
+library(tidyverse)
+library(grid)
+library(rlang)
+library(ggtext)
+library(showtext)
+library(extrafont)
+library(grid)
+library(magick)
+```
+
+```{r}
+font_files() %>% tibble() %>% filter(str_detect(family, "Playfair")) %>% pull(file)
+names(pdfFonts())
+font_add(family = "Playfair", regular = "PlayfairDisplay-MediumItalic.ttf")
+font_add(family = "Playball", regular = "Playball-Regular.ttf")
+font_add(family = "Rokkitt", regular = "Rokkitt-Regular.ttf")
+font_add_google(name = "Barlow Condensed", family = "Circle")
+
+showtext_auto()
+
+
+
+type_levels= c("From Public Lands", "Bank Stock", "Internal Revenue", "Customs", "Direct Tax", "Postage", "Miscellaneous")
+
+year_levels <- c("1869", "1868", "1867", "1866", "1865", "1864", "1863", "1862", "1861", "1860", "1859", "1858", "1857", "1856", "1855", "1854", "1853", "1852", "1851", "1850", "1849", "1848", "1847", "1846", "1845", "1843", "1842", "1841", "1840", "1839", "1838", "1837", "1836", "1835", "1834", "1833", "1832", "1831", "1830", "1829", "1828", "1827", "1826", "1825", "1824", "1823", "1822", "1821", "1820", "1819", "1818", "1817", "1816", "1815", "1814", "1813", "1812", "1811", "1810", "1809", "1808", "1807", "1806", "1805", "1804", "1803", "1802", "1801", "1800", "1799", "1798", "1797", "1796", "1795", "1794", "1793", "1792", "1789")
+
+year_levels1<- rev(year_levels)
+type_levels1 <- rev(type_levels)
+
+# Need to update the 1789 and 1843 dates with the correct label.
+pop_colors <- c("#c0c3b7",'#737165', "#b2a961",'#e19d91',"#a48048", "#fedcc6" ,"#ffe383")
+
+firstbar <- tibble(
+  vote_type = rep(type_levels, 78),
+  # Need to rep the pop_group within each vote_type
+  pop_group = rep(year_levels,c(7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7)),
+  amount =   c(1.17, 6.6, 0.0, 0.0, 0.0, 45.17, 47.06, 1.68, 7.1, 0.0, 0.0, 0.0, 42.76, 48.46, 0.67, 11.5, 0.0, 0.0, 0.24, 47.39, 40.2, 0.16, 8.8, 0.0, 0.0, 1.03, 54.14, 35.87, 0.16, 12.5, 0.0, 0.0, 0.02, 55.52, 31.8, 0.16, 11.9, 0.0, 0.0, 0.01, 62.99, 24.94, 0.41, 19.7, 0.0, 0.0, 0.1, 41.37, 38.42, 0.0, 4.4, 0.0, 0.0, 1.28, 33.27, 61.05, 0.67, 2.3, 0.0, 0.0, 3.58, 0.0, 93.45, 2.83, 2.29, 0.0, 0.0, 0.0, 0.0, 94.88, 3.72, 1.78, 0.0, 0.0, 0.0, 0.0, 94.5, 3.85, 3.81, 0.0, 0.0, 0.0, 0.0, 92.34, 7.92, 2.92, 0.0, 0.0, 0.0, 0.0, 89.16, 5.75, 1.91, 0.0, 0.0, 0.0, 0.0, 92.34, 12.24, 1.65, 0.0, 0.0, 0.0, 0.0, 86.11, 17.84, 1.52, 0.0, 0.0, 0.0, 0.0, 80.64, 11.73, 1.53, 0.0, 0.0, 0.0, 0.0, 86.74, 3.21, 2.03, 0.0, 0.0, 0.0, 0.0, 94.76, 4.48, 1.4, 0.0, 0.0, 0.0, 0.0, 94.12, 5.12, 2.14, 0.02, 0.0, 0.0, 0.0, 92.72, 4.99, 1.4, 0.0, 0.0, 0.0, 0.0, 93.61, 5.75, 1.53, 0.0, 0.0, 0.0, 0.0, 92.72, 9.82, 1.91, 0.0, 0.0, 0.0, 0.0, 88.27, 9.7, 1.39, 0.0, 0.0, 0.0, 0.0, 88.91, 9.31, 1.4, 0.0, 0.0, 0.0, 0.0, 89.29, 6.9, 1.52, 0.0, 0.0, 0.0, 0.0, 91.58, 8.3, 3.68, 0.0, 0.0, 0.0, 0.0, 88.02, 6.64, 2.67, 0.0, 0.0, 0.0, 0.0, 90.69, 8.17, 2.46, 4.03, 0.0, 0.0, 0.0, 85.34, 17.2, 4.79, 9.2, 0.0, 0.0, 0.0, 68.81, 22.92, 4.33, 0.0, 0.0, 0.0, 0.0, 72.75, 12.11, 9.07, 17.89, 0.0, 0.0, 0.0, 60.93, 27.37, 22.86, 5.63, 0.0, 0.0, 0.0, 44.14, 49.37, 5.07, 0.53, 0.0, 0.0, 0.0, 45.03, 42.0, 1.99, 1.7, 0.0, 0.0, 0.0, 54.31, 22.54, 0.47, 2.96, 0.0, 0.0, 0.0, 74.03, 11.73, 0.66, 2.27, 0.0, 0.0, 0.0, 85.34, 8.04, 0.39, 2.16, 0.0, 0.0, 0.0, 89.41, 11.22, 2.47, 1.98, 0.0, 0.0, 0.0, 84.33, 9.19, 0.61, 2.31, 0.0, 0.0, 0.0, 87.89, 6.13, 0.25, 2.17, 0.0, 0.0, 0.0, 91.45, 4.1, 0.36, 1.8, 0.0, 0.0, 0.0, 93.74, 6.64, 5.83, 2.06, 0.0, 0.0, 0.0, 85.47, 5.88, 0.46, 1.32, 0.0, 0.0, 0.0, 92.34, 5.75, 0.54, 1.75, 0.0, 0.0, 0.0, 91.96, 5.37, 0.46, 1.83, 0.0, 0.0, 0.0, 92.34, 4.48, 0.98, 1.82, 0.0, 0.0, 0.0, 92.72, 9.06, 1.72, 2.04, 0.0, 0.0, 0.31, 86.87, 8.17, 1.68, 0.63, 0.0, 0.0, 0.74, 88.78, 9.19, 1.0, 5.31, 0.0, 0.0, 1.19, 83.31, 13.26, 1.24, 2.84, 0.0, 0.1, 1.16, 81.4, 11.98, 0.23, 2.52, 0.0, 0.2, 5.7, 79.37, 5.88, 0.41, 0.92, 0.0, 5.0, 8.8, 78.99, 3.47, 0.0, 0.0, 0.67, 13.0, 7.05, 75.81, 7.92, 0.8, 0.0, 0.92, 20.0, 23.8, 46.56, 9.82, 0.7, 0.0, 0.81, 25.0, 9.99, 53.68, 5.75, 2.2, 0.0, 0.09, 30.0, 0.0, 61.96, 7.03, 0.49, 0.0, 1.29, 0.0, 0.0, 91.19, 7.03, 0.38, 0.0, 0.0, 0.0, 0.0, 92.59, 7.03, 1.14, 0.0, 0.0, 0.0, 0.0, 91.83, 5.63, 0.02, 0.0, 0.0, 0.1, 0.0, 94.25, 3.59, 0.51, 0.0, 0.0, 0.0, 0.0, 95.9, 2.7, 1.4, 0.0, 0.0, 0.0, 0.0, 95.9, 4.86, 1.12, 0.0, 0.0, 0.1, -0.07, 93.99, 3.59, 1.16, 0.0, 0.0, 0.1, -0.11, 95.26, 3.85, 2.03, 0.0, 0.0, 0.1, 0.15, 93.87, 1.3, 1.79, 0.0, 0.0, 0.5, 1.53, 94.88, 1.05, 1.05, 8.5, 0.0, 3.0, 3.22, 83.18, 0.92, 2.6, 0.67, 0.75, 10.0, 1.75, 83.31, 0.0, 0.33, 0.6, 1.2, 6.0, 7.92, 83.95, 0.0, 0.6, 1.0, 0.75, 10.0, 0.35, 87.3, 0.0, 0.2, 1.0, 0.77, 0.0, 8.05, 89.98, 0.54, 0.9, 4.26, 0.62, 0.0, 7.02, 86.66, 0.0, 0.0, 15.1, 1.06, 0.0, 5.62, 78.22, 0.0, 0.0, 2.9, 0.25, 0.0, 5.36, 91.49, 0.0, 0.0, 6.1, 0.5, 0.0, 5.11, 88.29, 0.0, 0.0, 1.0, 0.5, 0.0, 7.02, 91.48, 0.0, 0.0, 0.0, 0.74, 0.0, 5.49, 93.77),
+  fill = rep(pop_colors, 78))
+
+firstbar <- firstbar %>% 
+  mutate(vote_type = factor(vote_type, levels = type_levels),
+         pop_group = factor(pop_group, levels = year_levels),
+         fill = factor(fill, levels = pop_colors))
+
+picture <- image_graph(width = 640, height = 790)
+annotation_custom2 <- 
+function (grob, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax =Inf, data) 
+{
+  layer(data = data, stat = StatIdentity, position = PositionIdentity, 
+        geom = ggplot2:::GeomCustomAnn, 
+        inherit.aes = TRUE, params = list(grob = grob, 
+                                          xmin = xmin, xmax = xmax, 
+                                          ymin = ymin, ymax = ymax))
+}
+
+(ggplot(firstbar, aes(x = pop_group, 
+                      y = amount, fill=fill, label=''))+
+  geom_col(color = "black", size= .3, width=1) + scale_fill_manual(labels= '', values= pop_colors, name = "")+
+  
+  theme_classic()+
+    theme( panel.grid = element_blank(),
+           panel.grid.major = element_blank(),
+           panel.grid.minor = element_blank(),
+           axis.ticks = element_blank(),
+           axis.line.y = element_blank(),
+           axis.text.y= element_text(color='black', family='Rokkitt', size=12),
+           axis.text.x=element_blank(),
+           axis.title=element_blank(),
+           axis.line.x = element_blank(),
+           legend.position='none',
+           plot.margin = unit(c(.5,1,.5,1), "cm")) + scale_y_continuous(limits= c(0,101), expand=c(0,0)) + scale_x_discrete(expand=c(0,3))) + coord_flip()
+dev.off()
+img <- image_draw(picture)
+
+   #plotting y axis labels to the right of the bars
+   text(620,747, "411.3", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,739, "370.9", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,730, "405.6", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,720, "489.9", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,710, "619.6", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,700, "323.1", cex = .9, col = "black", family = 'Rokkitt')+
+       text(620,691, "262.7", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,682, "112.1", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,673, "51.9", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,664, "41.5", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,655, "56.1", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,647, "52.8", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,639, "46.7", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,629, "69.0", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,619, "74.1", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,611, "65.4",cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,602, "73.8", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,592, "61.5",cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,584, "49.8", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,574, "52.6", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,564, "43.6", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,555, "30.7", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,546, "35.7", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,536, "26.4", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,527, "29.7", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,519, "29.9", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,510, "37.6", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,502, "20.0", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,493, "16.9", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,484, "19.4", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,475, "30.0", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,465, "26.3", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,456, "24.9", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,447, "50.8", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,437, "35.4", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,428, "21.8", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,418, "33.9", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,409, "31.9", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,401, "28.5", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,391, "24.8", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,382, "24.8", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,374, "24.8", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,365, "23.0", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,356, "25.3", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,347, "21.8", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,338, "19.4",cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,329, "20.5", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,320, "20.2", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,311, "14.6", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,301, "17.8", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,292, "24.6", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,283, "21.6", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,274, "33.1", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,265, "47.7", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,254, "15.7", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,245, "11.2", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,235, "14.3", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,225, "9.8", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,216, "14.4", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,207, "9.4", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,199, "7.8", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,190, "17.1", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,180, "16.4", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,170, "15.6",cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,162, "13.6", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,153, "11.8",cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,144, "11.1", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,135, "15.0", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,124, "12.9", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,115, "10.8",cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,106, "7.5", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,97, "7.9", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,89, "8.7", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,79, "8.4",cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,69, "6.1", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,59, "5.4",cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,50, "4.7", cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,41, "3.7",cex = .9, col = "black", family = 'Rokkitt')+
+     text(620,30, "4.4", cex = .9, col = "black", family = 'Rokkitt')+
+     text(15,518, "Jan. 1", cex = .9, col = "black", family = 'Rokkitt')+
+      text(93,518, "to June 30. 1844", cex = .9, col = "black", family = 'Rokkitt')+
+     polygon(c(56, 606, 606, 56), c(20, 20, 37, 37), border = "black", col = "#ffe383")+ text(88,30, "May 4.  1789 to Dec 31. 1791.", cex = 1, col = "black", family = 'Rokkitt')
+   
+
+
+dev.off()
+image_write(img, path = here::here('Walker Francis', "save.png"), format = "png")
+     
+#save<- area + coord_flip()        
+#ggsave('save.png')
+#firstbar
+```
