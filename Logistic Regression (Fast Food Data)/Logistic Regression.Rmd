@@ -1,0 +1,274 @@
+---
+title: "STA321: Final Project Analysis"
+author: "Lauryn Davis"
+date: "11/20/2023"
+output:
+  html_document: default
+  word_document: default
+---
+
+This code chunk allows R Markdown to knit your output file even if there are coding errors.
+
+```{r setup, message=FALSE}
+knitr::opts_chunk$set(error = TRUE)
+```
+
+```{r}
+#Beginning with multiple regression: 
+library(tidyverse)
+library(caret)
+library(car)
+data<- read.csv("fastfood.csv")
+attach(data);head(data);summary(data);str(data);
+data %>%
+  count(restaurant)
+mydata <- data %>%
+  dplyr::select_if(is.numeric) 
+
+#create boxplots
+boxplot(calories ~ restaurant,
+data = data,
+main = "Calories Distribution by Restaurant",
+xlab = "",
+ylab = "Calories",
+las = 2, 
+        cex.axis=.8,
+col = "steelblue",
+border = "black")
+
+#Only Restaurant Model:
+
+only_res <- lm(calories ~ restaurant)
+plot(only_res)
+
+#Removing Outliers:
+myData <- data[-c(40,45, 48), ]
+only_res <- lm(calories ~ restaurant, data = myData)
+par(mfrow = c(2, 2))
+plot(only_res)
+
+#Trying various transformations:
+myData <- data[-c(40,45, 48), ]
+lncalories<- log(calories)
+only_res <- lm(log(calories) ~ restaurant, data = myData)
+par(mfrow = c(2, 2))
+plot(only_res)
+
+
+#Stepwise Regression:
+#Stepwise Selection:
+model.0 <- lm(calories ~ 1)
+add1(model.0, ~ total_fat+ sat_fat+ trans_fat+cholesterol + sodium + total_carb + fiber + sugar + protein + vit_a+ vit_c+ calcium , test="F")
+model.1 <- lm(calories ~ total_fat)
+add1(model.1, ~ . + sat_fat+ trans_fat+cholesterol + sodium + total_carb + fiber + sugar + protein + vit_a+ vit_c+ calcium , test="F")
+model.2 <- lm(calories ~ total_fat + total_carb)
+add1(model.2, ~ . + sat_fat+ trans_fat+cholesterol + sodium + fiber + sugar + protein + vit_a+ vit_c+ calcium , test="F")
+model.3 <- lm(calories ~ total_fat + total_carb + cholesterol)
+add1(model.3, ~ . + sat_fat+ trans_fat + sodium + fiber + sugar + protein + vit_a+ vit_c+ calcium , test="F")
+
+
+#Stopping here because it has a really good R^2 and we want to try and keep things simple. 
+reduced_model <- lm(calories ~ total_fat + total_carb + cholesterol)
+full_model<- lm(calories ~ cal_fat+ total_fat+ sat_fat+ trans_fat+cholesterol + sodium + total_carb + fiber + sugar + protein + vit_a+ vit_c+ calcium)
+summary(reduced_model)
+
+#Charting the VIF'S:
+#create vector of VIF values
+
+vif_values <- vif(reduced_model)
+
+#create horizontal bar chart to display each VIF value
+
+barplot(vif_values, main = "VIF Values", horiz = TRUE, col = "steelblue")
+
+abline(v = 5, lwd = 3, lty = 2)
+
+#create vector of VIF values
+
+vif_values <- vif(full_model)
+
+#create horizontal bar chart to display each VIF value
+
+barplot(vif_values, main = "VIF Values", horiz = TRUE, col = "steelblue")
+
+#add vertical line at 5
+
+abline(v = 5, lwd = 3, lty = 2)
+
+#Checking Assumptions for reduced model:
+#Create the diagnostic plots with the R base function:
+
+par(mfrow = c(2, 2))
+
+plot(reduced_model)
+
+par(mfrow = c(1, 2))
+
+# Cook's distance
+
+plot(reduced_model, 4)
+
+# Residuals vs Leverage
+
+plot(reduced_model, 5)
+
+#calculate the standardized residuals
+
+standard_res <- as.data.frame(rstandard(reduced_model));head(standard_res)
+
+#find Cook's distance for each observation in the dataset
+
+cooksD <- as.data.frame(cooks.distance(reduced_model));head(cooksD)
+
+#calculate leverage for each observation in the model
+
+hats <- as.data.frame(hatvalues(reduced_model))
+
+#display leverage stats for each observation
+
+head(hats)
+
+#Assumption: There is no correlation between the residuals, e.g. the residuals are independent.
+
+#H0 (null hypothesis): There is no correlation among the residuals.
+
+#HA (alternative hypothesis): The residuals are autocorrelated.
+
+#perform Durbin-Watson test
+
+durbinWatsonTest(reduced_model)
+library(nortest)
+ad.test(rstandard(reduced_model)) 
+
+```
+
+```{r}
+#Logistic Regression:
+#Creating Binary Indicator:
+data$unhealthylevel <- ifelse(data$calories>750, 1, 0)
+data$unhealthylevel <- as.factor(data$unhealthylevel)
+
+#Converting Resaurant to be a factor:
+data$restaurant <- as.factor(data$restaurant)
+
+#Creating Testing and Training dataset:
+set.seed(123)
+training.samples <- data$unhealthylevel %>% 
+  createDataPartition(p = 0.8, list = FALSE)
+train  <- data[training.samples, ]
+test <- data[-training.samples, ]
+train$restaurant <- as.factor(train$restaurant)
+test$restaurant <- as.factor(test$restaurant)
+
+
+#Creating Model with only Factor indicator as explanatory variable. Doing this 8 separate times to calculate the odds ratio
+#Burger King:
+data$restaurant <- relevel(data$restaurant, ref="Burger King")
+logistic <- glm(unhealthylevel ~ as.factor(restaurant), data = data, family = 'binomial')
+summary(logistic)
+exp(coef(logistic))
+
+#No influential observations For some reason you need to run this individually in the RMD for it to work:
+model.data <- augment(logistic) %>% 
+  mutate(index = 1:n()) 
+model.data %>% top_n(3, .cooksd)
+model.data %>% 
+  filter(abs(.std.resid) > 3)
+
+#Subway:
+data$restaurant <- relevel(data$restaurant, ref="Subway")
+logistic <- glm(unhealthylevel ~ as.factor(restaurant), data = data, family = 'binomial')
+summary(logistic)
+exp(coef(logistic))
+durbinWatsonTest(logistic)
+
+#Mcdonalds:
+data$restaurant <- relevel(data$restaurant, ref="Mcdonalds")
+logistic <- glm(unhealthylevel ~ as.factor(restaurant), data = data, family = 'binomial')
+summary(logistic)
+exp(coef(logistic))
+durbinWatsonTest(logistic)
+
+#Sonic:
+data$restaurant <- relevel(data$restaurant, ref="Sonic")
+logistic <- glm(unhealthylevel ~ as.factor(restaurant), data = data, family = 'binomial')
+summary(logistic)
+exp(coef(logistic))
+
+#Chic Fil A:
+data$restaurant <- relevel(data$restaurant, ref="Chick Fil-A")
+logistic <- glm(unhealthylevel ~ as.factor(restaurant), data = data, family = 'binomial')
+summary(logistic)
+exp(coef(logistic))
+
+#Dairy Queen:
+data$restaurant <- relevel(data$restaurant, ref="Dairy Queen")
+logistic <- glm(unhealthylevel ~ as.factor(restaurant), data = data, family = 'binomial')
+summary(logistic)
+exp(coef(logistic))
+
+#Taco Bell:
+#Seeing ANOVA:
+data$restaurant <- relevel(data$restaurant, ref="Taco Bell")
+logistic <- glm(unhealthylevel ~ as.factor(restaurant), data = data, family = 'binomial')
+anova(logistic, test = "Chi")
+summary(logistic)
+exp(coef(logistic))
+
+#Arbys:
+data$restaurant <- relevel(data$restaurant, ref="Arbys")
+logistic <- glm(unhealthylevel ~ as.factor(restaurant), data = data, family = 'binomial')
+summary(logistic)
+exp(coef(logistic))
+#We see that there is significant difference depending on the restaurant:
+anova(logistic, test = 'Chisq')
+
+#Printing the classification accuracy:
+fitted.results <- predict(logistic,newdata=subset(test,select=c(1:18)),type='response')
+fitted.results <- ifelse(fitted.results > 0.2,1,0)
+misClasificError <- mean(fitted.results != test$unhealthylevel)
+print(paste('Accuracy',1-misClasificError))
+
+
+#ROC Curve... Unrealistic due to high correlations... Limitation to note within the report:
+library(ROCR)
+p = predict(logistic, data, type = "response")
+pred = prediction(p, data$unhealthylevel)
+roc = performance(pred, "tpr", "fpr")
+plot(roc, col = 'red',
+     main = "ROC Curve")
+abline(a=0, b=1)
+#Higher area under the curve the better the fit (AUC)
+auc = performance(pred, "auc")
+auc = unlist(slot(auc, "y.values"))
+auc = round(auc, 2)
+legend(.6, .2, auc, title = "Area under the Curve", cex = .75)
+
+
+#Assumptions:
+library(tidyverse)
+library(broom)
+theme_set(theme_classic())
+library(ResourceSelection)
+library(nnet)
+library(foreign)
+
+#Multicollinearity is satisified Need to run this as an individual line in the RMD.:
+vif(logistic)
+
+#Not satisfied Linearity: Assessing the goodness of fit of the model. Not met using this criterion:
+hoslem.test(data$unhealthylevel, fitted(logistic), g= 10)
+# Odds ratios only
+exp(coef(logistic))
+
+#McFadden’s R squared in R:
+null_model<- glm(unhealthylevel ~ 1, data = data, family = 'binomial')
+1-logLik(logistic)/logLik(null_model)
+
+## odds ratios and 95% CI
+exp(cbind(OR = coef(logistic), confint(logistic)))
+
+#Independece met for this model:
+durbinWatsonTest(logistic)
+```
+
