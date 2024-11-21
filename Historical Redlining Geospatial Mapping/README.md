@@ -16,6 +16,8 @@
 
 ### Summary of data
 
+**Note: three large lfs files need to be pushed in order to run the app.
+
 <!---data description-->
 
 
