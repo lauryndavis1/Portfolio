@@ -5,8 +5,8 @@ I hold a bachelor's degree in Applied Mathematics with a minor in Applied Statis
 This portfolio highlights my diverse range of projects, including:  
 - **Geospatial Analysis**: Mapping and interpreting spatial data.  
 - **Time Series**: Modeling and analyzing temporal trends.  
-- **Neural Networks**: Research and reporting on advanced machine learning concepts.  
 - **Statistical Projects**: Focusing on linear models, hypothesis testing, and data visualization.  
-- **Interactive Development**: Designing and developing dynamic websites and applications.
+- **Interactive Development**: Designing and developing dynamic websites and applications.  
+- **Research Papers**: Exploring advanced topics such as Neural Networks and Natural Language Processing (NLP).  
 
 Each project reflects my dedication to leveraging data science for impactful problem-solving and innovation.
