@@ -40,11 +40,6 @@ The project involves several stages of development:
 - **Data Sources**: Mapping Inequality, U.S. Census Bureau  
 - **Development Tools**: RStudio, GitHub
 
-## Challenges and Considerations
-- Ensuring accessibility for users of different technical backgrounds.  
-- Addressing the emotional toll of reviewing historical discriminatory practices.  
-- Iteratively improving the tool based on feedback from teachers and students.
-
 ## Contact
 For questions, collaboration, or feedback, please contact:  
 **Lauryn Davis**  

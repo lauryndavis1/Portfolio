@@ -33,10 +33,5 @@ This project analyzes nutritional indicators in fast food items across eight maj
 - Threshold-based classification of unhealthy food items.
 - Assumption checks and validation.
 
-## Files
-- `data/`: Contains the "Fastfood" dataset.  
-- `code/`: R scripts for data processing and modeling.  
-- `results/`: Outputs and visualizations.
-
 ## Contact
 For inquiries, contact Lauryn Davis at Ldavis9997@yahoo.com.  
