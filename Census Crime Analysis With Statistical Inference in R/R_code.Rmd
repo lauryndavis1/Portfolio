@@ -1,0 +1,693 @@
+---
+title: "Final Project"
+author: "Lauryn Davis"
+date: "2024-04-22"
+output: rmdformats::material
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message=FALSE}
+library(rmdformats)
+library(tidyverse)
+library(skimr)
+library(tidytext)
+library(showtext)
+library(htmlwidgets)
+library(webshot)
+library(flextable)
+library(skimr)
+library(scales)
+library(mice)
+library(naniar)
+library(palmerpenguins)
+library(knitr)
+library(ggthemes)
+library(ggpubr)
+library(readr)
+library(naniar)
+library(dplyr)
+library(ggrepel)
+```
+I have decided to use the gun violence data within the United States from January 2013 - March 2018. In addition to this data, merging of another dataset discussing census data will be conducted. The additional data includes economic and demograpic data at the state level from 2008-2021. The hope with this new data is to see if there is any correlation between economic and or demographic indicators and where gun violence is occurring. 
+
+The focus within this project will include insight into mass shooting impacts, locations of mass shootings within the United States, and criminal characteristics. 
+
+# 1) Data Dictionary
+
+Reading in Data:
+
+```{r}
+crime_data<- read_csv("stage3.csv")
+```
+
+Adding some additional variables for later use:
+
+```{r}
+
+added_crime_data<- crime_data %>% 
+  mutate(
+    year = year(date),
+    month_num = month(date), 
+    month_name_abb = month(date, label = TRUE), 
+    month_name_full = month(date, label = TRUE, abbr = FALSE)
+  )
+
+
+added_crime_data <- added_crime_data %>% 
+              mutate(mass_shooting=ifelse((n_killed>=3),TRUE, FALSE))
+
+#I will explain this information further down. I just need this for the data dictionary: 
+
+merge1<- added_crime_data|>
+  mutate(cleaned_participants = str_replace_all(participant_type, 
+                pattern = '::', replacement = ''),
+         cleaned_participants = str_replace_all(cleaned_participants,
+                                                 pattern = '\\|\\|', ','),
+         cleaned_participants = str_replace_all(cleaned_participants,
+                                                pattern = '[0-9]', ''))
+
+
+#We create a longer df to separate the values within each list of values relating to the participants in the gun violence event: 
+
+
+df1 <- tibble(incident_id = merge1$incident_id, participant = merge1$cleaned_participants, state = merge1$state, n_killed = merge1$n_killed, n_injured = merge1$n_injured,
+              mass_shooting = merge1$mass_shooting, month_name_abb = merge1$month_name_abb, year = merge1$year)
+
+
+participant_type<-df1 |> 
+  separate_longer_delim(participant, delim = ",")
+
+participant_info <- participant_type|>
+  group_by(incident_id)|>
+
+     mutate(victim_count = str_count(participant,
+                                    pattern = "Victim"),
+           suspect_count = str_count(participant,
+                                    pattern = "Subject-Suspect"))|>
+  ungroup()|>
+    group_by(state)|>
+  mutate(victim_count = sum(victim_count, na.rm = TRUE),
+            suspect_count = sum(suspect_count, na.rm = TRUE),
+            proportion_victim = victim_count / (victim_count + suspect_count),
+            proportion_suspect = suspect_count / (victim_count +suspect_count))
+
+
+
+```
+
+Creating a data dictionary for variables that were used within this analysis: 
+
+```{r}
+
+used_variables<- participant_info|>
+  select("incident_id", "state", "n_killed", "n_injured", "proportion_victim", "proportion_suspect",
+                                       "mass_shooting", "month_name_abb", "year")
+
+dataDictionary <- tibble(Variable = c("incident_id","state", "n_killed", "n_injured",
+                                      "proportion_victim", "proportion_suspect",
+                                       "mass_shooting", "month_name_abb", "year"),
+                         Description = c("The ID that corresponds to the gun violence event",
+                           "State in which the crime occured within the U.S.", 
+                                         "Number of people killed within the gun violence event", 
+                                         "Number of people injured within the gun violence event",
+                                        "Proportion of gun violence victims within a state",
+                           "Proportion of gun violence suspects within a state",
+                                         "A binary indicator variable indicating if there was a shooting (TRUE) or not (FALSE)",
+                                         "The abbreviated name for the month",
+                                         "Year recorded (2013, 2014, 2015, 2016, 2017, or 2018)"),
+                         Type = map_chr(used_variables, .f = function(x){typeof(x)[1]}),
+                         Class = map_chr(used_variables, .f = function(x){class(x)[1]}))
+
+```
+
+```{r}
+# Printing nicely in R Markdown (option 1)
+flextable::flextable(dataDictionary, cwidth = 2)
+
+```
+
+First, we find that the shape of this data set is `r dim(crime_data)`. This means that there are 239677 observations over 29 variables. 
+
+Next, we explore the missingness of each variable from the original dataset:
+
+```{r}
+gg_miss_var(crime_data, show_pct=TRUE)
+```
+
+
+
+From this visualization, we find that the variables that are over half missing include: "participant_relationship", "location_description", and "participant_name". This sort of acknowledgement is important within data analytics. It's imperative to clean data appropriately depending on the impact of removing missing values from various variables. If we do not acknowledge this issue, visualizations may be skewed and summary statistics may provide inaccurate findings. In the case of this analysis, the variables that have many missing values do not provide much insight into what is hoped to be gained from this project. 
+
+
+# 2) Data Cleaning
+
+### a) Merging Data Sets
+
+Loading in the additional census data:
+
+```{r}
+census<- read_csv("https://raw.githubusercontent.com/dilernia/STA418-518/main/Data/census_data_state_2008-2021.csv")
+
+
+```
+
+Before merging the two data frames together, we can run similar analysis concerning missingness within this dataset:
+
+```{r}
+gg_miss_var(census, show_pct=TRUE)
+```
+
+This data set is complete! There are no missing values. This is great for data analysis. 
+
+Now we merge the gun violence and census dataset's on "State" and "year":
+
+```{r}
+census <- census %>% rename( state= county_state)
+
+#Only including data from 2013 - 2018 because that's what the gun violence has. 
+census<- census|>
+  filter(year >= 2013 & year <= 2018)
+
+merged_df <- full_join(merge1, census, by = c("state", "year"))
+
+
+```
+
+
+The U.S. statute (Investigative Assistance for Violent Crimes Act of 2012) defines a "mass killing" as 3 or more killings in a single incident (Chmielewski).
+
+We can standardize by population sizes of each state to get a more representative picture of the number of mass shootings that are occurring within each state in consideration with their state size. Furthermore, we will define measurements for the number of mass shootings per one hundred thousand people:
+
+According to the data, the top five states with mass shooting events, (standardized and per 100 thousand people), from 2013 - 2018 was:
+
+```{r}
+
+merged_df<- merged_df|>
+  group_by(state)|>
+  mutate(avg_pop = mean(population))
+
+us_statue_mass <-merged_df %>% 
+  mutate(mass_shooting=ifelse((n_killed>=3),TRUE, FALSE))|>
+  group_by(state, avg_pop)|>
+  count(mass_shooting)|>
+  filter(mass_shooting == TRUE)|>
+  mutate(average_mass = (n / avg_pop)*100000)|>
+  arrange(desc(average_mass))|>
+  ungroup()|>
+  slice_head(n=5)|>
+  flextable()
+
+us_statue_mass
+
+```
+
+We can then view the average median income of these top five states:
+
+```{r}
+mass<- merged_df|>
+  group_by(state)|>
+  mutate(mass_shooting=ifelse((n_killed>=3),TRUE, FALSE))|>
+  count(mass_shooting)|>
+  filter(mass_shooting == TRUE)|>
+  filter(state %in% c("Louisiana", "Alaska", "Kansas", "Nevada", "Missouri"))|>
+  arrange(desc(n))
+
+merged_df|>
+  group_by(state)|>
+  summarise(med_over_years = mean(median_income))|>
+  filter(state %in% c("Louisiana", "Alaska", "Kansas", "Nevada", "Missouri"))|>
+  flextable()
+
+
+```
+
+
+
+
+### b) String Manipulation
+
+The first two `stringr` methods that were utilized within this project were the use of functions called `str_replace_all` and ` separate_longer_delim`. This was used to clean the participant type column. This was done so there could be a distinction between who was a victim or suspect-subject. 
+
+
+```{r}
+merge1<- merged_df|>
+  mutate(cleaned_participants = str_replace_all(participant_type, 
+                pattern = '::', replacement = ''),
+         cleaned_participants = str_replace_all(cleaned_participants,
+                                                 pattern = '\\|\\|', ','),
+         cleaned_participants = str_replace_all(cleaned_participants,
+                                                pattern = '[0-9]', ''))
+
+
+
+#We create a longer df to separate the values within each list of values relating to the participants in the gun violence event: 
+
+
+df1 <- tibble(year = merge1$year, incident_id = merge1$incident_id, participant = merge1$cleaned_participants, state = merged_df$state)
+
+
+participant_type<-df1 |> 
+  separate_longer_delim(participant, delim = ",")|>
+  select(incident_id, participant, year, state)
+
+
+```
+
+The next `stringr` method that was utilized was the `str_count` method. This can be used to understand how many victims and suspects were within a gun violence event:
+
+```{r}
+participant_info <- participant_type|>
+  group_by(incident_id)|>
+
+     mutate(victim_count = str_count(participant,
+                                    pattern = "Victim"),
+           suspect_count = str_count(participant,
+                                    pattern = "Subject-Suspect"))
+
+
+```
+
+# 3) Exploratory Data Analysis
+
+### a) Tables of Summary Statistics
+
+The first summary statistics table that will be shown is the top ten states with gun violence injuries from 2013 - 2018. 
+
+```{r}
+ft<- merged_df|> 
+  group_by(state)|>
+  filter(is.na(n_injured) == FALSE)|>
+  summarize(sum = sum(n_injured),
+    mean = round(mean(n_injured),2),
+            maximum = max(n_injured),
+            minimum = min(n_injured),
+            q1 = quantile(n_injured,probs =  0.25),
+            q3 = quantile(n_injured, probs = 0.75))|>
+  arrange(desc(sum))|>
+  slice_head(n=10)|>
+  flextable()
+
+# Add a caption
+ft <- set_caption(ft, "Table 1: Summary Statistics for top ten states with gun violence injuries from 2013 - 2018")
+
+ft 
+
+
+
+```
+
+We find that Illinois  had the largest number of people injured due to gun violence across 2013 - 2018. Additionally, within this summary statistics table we are able to see the average number of people injured, the minimum, maximum, and first/third quartiles.
+
+The second summary statistics that will be shown is the number of people killed due to gun violence events per year. We order this by descending sum of people killed by gun violence:
+
+```{r}
+
+ft<-merged_df|> 
+  group_by(year)|>
+  filter(is.na(n_killed) == FALSE)|>
+  summarize(sum = sum(n_killed),
+    mean = round(mean(n_killed),2),
+            maximum = max(n_killed),
+            minimum = min(n_killed),
+            q1 = quantile(n_killed,probs =  0.25),
+            q3 = quantile(n_killed, probs = 0.75))|>
+  arrange(desc(sum))|>
+  slice_head(n=10)|>
+  flextable()
+
+
+# Add a caption
+ft <- set_caption(ft, "Table 2: Summary Statistics for number of gun violence victims per year from 2013 - 2018")
+
+ft 
+```
+
+We find that 2017 had the most gun violence deaths compared to the other years. It's important to note, however, that 2013 and 2018 did not have full data. Additionally, we can view the average number of people killed in a gun violence event per year, the minimum, maximum, and the first and third quartiles. 
+
+
+### b) Data Visualizations
+
+The first data visualization shows the top ten states with mass shootings per 100,000 people, (standardized by population), from 2013 - 2018. 
+
+```{r}
+mass<- merged_df %>% 
+  mutate(mass_shooting=ifelse((n_killed>=3),TRUE, FALSE))|>
+  group_by(state, avg_pop)|>
+  count(mass_shooting)|>
+  filter(mass_shooting == TRUE)|>
+  mutate(average_mass = (n / avg_pop)*100000)|>
+  arrange(desc(average_mass))|>
+  ungroup()|>
+  slice_head(n=10)
+
+#Mass shootings vs state
+
+mass |> 
+  ggplot(aes(x=reorder(state, +average_mass), y = average_mass, fill = state))+
+  labs(x = "State", y = "Ratio of Mass Shootings Per 100,000 People", title= 'Top Ten States with Mass Shootings\nper 100,000 People', subtitle = "From January 2013 - March 2018",
+       caption = "Data Source: Gun Violence Archive")+
+  geom_col(color = "black")+
+  scale_fill_viridis_d()+
+  coord_flip()+
+  scale_y_continuous(expand = expansion(mult = c(0,0.1)))+
+  theme_bw()+
+  theme(legend.position = "None",
+      plot.subtitle = element_text(size = 10))
+```
+
+We find that other states that had many mass shootings (in addition to those that were already mentioned), include Montana, New Mexico, Oklahoma, Kentucky, and South Carolina.
+
+The next data visualization has to do with the proportion of suspects and victims within the top 5 states who had mass shootings per 100,000 people within the population. Furthermore, we can see if there is a higher proportion of victims or suspects from 2013 - 2018 within each of these states.  
+
+
+```{r}
+participant_proportions <- participant_info|>
+  filter(state %in% c("Louisiana", "Alaska", "Kansas", "Nevada", "Missouri"))|>
+  group_by(state)|>
+  summarize(victim_count = sum(victim_count, na.rm = TRUE),
+            suspect_count = sum(suspect_count, na.rm = TRUE),
+            proportion_victim = victim_count / (victim_count + suspect_count),
+            proportion_suspect = suspect_count / (victim_count +suspect_count))
+
+needed_viz<- participant_proportions|>
+
+  select(state, proportion_victim, proportion_suspect)|>
+  pivot_longer(c(proportion_victim, proportion_suspect))
+
+ggplot(needed_viz, aes(x = state, y = value, fill = name)) +
+  geom_col(position = "dodge", color = "black") +
+  labs(x = "State", y = "Proportion", title = "Proportion of Gun Violence Victims and Suspects per State", subtitle = "From 2013 - 2018", fill = "Participant Type") +
+  scale_y_continuous(expand = expansion(mult = c(0,.1)))+
+  scale_fill_colorblind(labels = c("Suspect", "Victim"))+
+  theme_bw()
+
+
+```
+
+From this visualization, we can see that there were more suspects in Alaska compared to the other four states. Furthermore, we find that the proportion of victims and suspects is quite similar across the other four states of concern.
+
+
+Visualization 3: We could also visualize population vs. mass shootings per state and per year (not standardized by population). We use Texas, California, Florida, Georgia, and Missouri because these states had the most mass shootings across 2013 - 2018, not considering standardization. 
+
+We only view 2014 - 2017 because these states have full data, whereas 2013 and 2018 do not:
+
+```{r}
+library(ggrepel)
+mass<- merged_df|>
+  group_by(state, year, population)|>
+  mutate(mass_shooting=ifelse((n_killed>=3),TRUE, FALSE))|>
+  count(mass_shooting)|>
+  filter(mass_shooting == TRUE)|>
+  filter(state %in% c("Texas", "California", "Florida", "Georgia", "Missouri"),
+         year %in% c(2014, 2015, 2016, 2017))|>
+  arrange(desc(n))|>
+  ungroup()
+
+ggplot(mass, aes(x = n, y = population, label = state)) +
+  geom_point(size = 3, color = "blue") +
+  labs(x = "Number of Mass Shootings", y = "Population Amount", title = "Population vs. Number of Mass Shootings by State Per Year", caption = "Data Source: Gun Violence Archive and The United States American Community Survey (ACS)") +
+  facet_grid(.~year)+
+  scale_y_continuous(labels = label_comma())+
+  geom_text_repel(size = 3, segment.color = "transparent", box.padding = unit(0.2, "lines")) + 
+  theme_bw()
+
+
+#works cited: https://cran.r-project.org/web/packages/ggrepel/vignettes/ggrepel.html
+
+
+```
+
+
+We see that California has a significantly larger population than the other four states of concern. It makes sense that there are more mass shootings in a state that has a larger population. It seems like the hypothesis of a higher population producing more mass shootings would hold. 
+
+Visualization 4: Now that we have successfully merged on state and year, we can visualize the top five states with mass shooting per 100,000 people in conjunction with an economic indicator such as median income. 
+
+
+```{r}
+library(ggrepel)
+mass<- merged_df|>
+mutate(mass_shooting=ifelse((n_killed>=3),TRUE, FALSE))|>
+  group_by(state, avg_pop)|>
+  count(mass_shooting)|>
+  filter(mass_shooting == TRUE)|>
+  mutate(average_mass = (n / avg_pop)*100000)|>
+  arrange(desc(average_mass))|>
+  ungroup()|>
+  filter(state %in% c("Louisiana", "Alaska", "Kansas", "Nevada", "Missouri"))
+
+mass1 <- merged_df|>
+  group_by(state)|>
+  summarise(med_over_years = mean(median_income))|>
+  filter(state %in% c("Louisiana", "Alaska", "Kansas", "Nevada", "Missouri"))
+  
+need_for_viz<- full_join(mass, mass1, by="state")
+  
+ggplot(need_for_viz, aes(x = average_mass, y = med_over_years, label = state)) +
+  geom_point(size = 3, color = "blue") +
+  labs(x = "Ratio of Mass Shootings", y = "Median Income (Dollars)", title = "Median Income vs. Number of Mass Shootings by State") +
+  geom_text_repel(size = 3, segment.color = "transparent", box.padding = unit(0.2, "lines")) + 
+  theme_bw()
+
+
+#works cited: https://cran.r-project.org/web/packages/ggrepel/vignettes/ggrepel.html
+
+```
+
+We find that Alaska is the second highest state with mass shootings per 100,000 people. They also have the highest median income, which is about $74,000. Additionally, Louisiana, who has the highest number of mass shootings per 100,000 people has the lowest median income across the other four states. 
+
+
+Visualization 5:
+
+We can also view the number of people killed across each month of the year. We only view 2014 - 2017 because these states have full data, whereas 2013 and 2018 do not:
+
+
+```{r}
+#Number of gun violence events from 2013 - 2018
+library(lubridate)
+crime_data<- crime_data %>% 
+  mutate(
+    year = year(date),
+    month_num = month(date), 
+    month_name_abb = month(date, label = TRUE), 
+    month_name_full = month(date, label = TRUE, abbr = FALSE)
+  )
+
+crime_data1<- 
+  crime_data|>
+  group_by(year, month_name_abb)|>
+  summarize(total_killed = sum(n_killed))|>
+  select(month_name_abb, year, total_killed)
+
+crime_data1|>
+  filter(year != 2013 & year != 2018)|>
+  ggplot(aes(x = month_name_abb, y = total_killed, fill = total_killed))+
+  geom_col()+
+  labs(x = "Month", y = "Number of People Killed", title = "Number of Killings Due to Gun Violence is Gradually Increasing Per Year")+
+  facet_grid(.~year)+
+  scale_y_continuous(expand = expansion(mult = c(0,0.1)))+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle =90, hjust = 1, size = 8),
+        plot.title = element_text(size =11),
+        legend.position = "None")
+
+```
+
+We can see that the number of people killed due to gun violence is gradually increasing per year. Additionally, there tends to be more killings in the middle of each year around summer time. There seems to be less killings, on average, in the month of Februrary. 
+
+# 4) Monte Carlo Methods of Inference
+
+A way to further the analysis of gun violence in conjunction with economic indicators could be to test whether there is a statistically significant difference in gun violence events between the top 10 and bottom 10 average median income states from 2013 - 2018. This can be analyzed using a randomization test.
+
+
+According to class lecture notes, "a randomization testing procedure can be used to compare the two groups. To do so, the observations are all pooled together, and a t-test statistic is calculated for random arrangements of participants in each group. That is, we obtain the t-test statistic values for different permutations of the group labels for the participants. Using these calculated test statistics for different combinations of participants, we have created a null distribution of possible differences relying on the assumption that individuals are exchangeable across the two groups (i.e., there is no true difference in the distributions of values between the groups" (DiLernia).
+
+With this in mind, the hypothesis for this analysis is stated as follows:
+
+Our hypotheses are: 
+
+$$H_O: \mu_{\text{Low_income}} \le \mu_{\text{Top_income}}$$
+
+$$H_A: \mu_{\text{Low_income}} > \mu_{\text{Top_income}}$$
+```{r}
+## Pulling the top and bottom median income states
+
+top_ten_median_income<- merged_df|>
+group_by(state)|>
+  select(state, median_income, n_killed)|>
+  summarize(avg_income = mean(median_income), 
+            total_killed = sum(n_killed, na.rm = TRUE))|>
+  arrange(desc(avg_income))|>
+  slice_head(n=10)|>
+  mutate(group = "Top ten")
+
+bottom_ten_median_income<- merged_df|>
+  group_by(state)|>
+  select(state, median_income, n_killed)|>
+  summarize(avg_income = mean(median_income), 
+            total_killed = sum(n_killed, na.rm = TRUE))|>
+  arrange(desc(avg_income))|>
+  slice_tail(n=10)|>
+  mutate(group = "Bottom ten")
+
+merged_income_df<- rbind(top_ten_median_income, bottom_ten_median_income)
+```
+
+
+
+```{r}
+# Calculating standard deviations and variances for each group
+merged_income_df |> 
+  group_by(group) |> 
+  summarize(Mean = mean(total_killed),
+            n = n(),
+            SD = sd(total_killed),
+            Variance = var(total_killed)) |> 
+  flextable() |> 
+  colformat_double(digits = 3) |> 
+  autofit()
+```
+
+Although the assumptions are not met within the test of equality of variances, we move forward with the test for academic purposes. (Verified with Professor).
+
+
+
+```{r}
+library(tidymodels)
+set.seed(1994)
+# Number of permutations to do
+nperms <- 500
+
+# Instantiating vector for test statistics
+permTs <- vector(length = nperms)
+
+# Calculating t-test statistic for each permutation
+for(p in 1:nperms) {
+  permTs[p] <- merged_income_df |>
+    mutate(group = sample(group, replace = FALSE)) |>
+  t_test(response = total_killed,
+         explanatory = group,
+         order = c("Bottom ten", "Top ten"),
+         alternative = "greater") |>
+    pull(statistic)
+}
+
+
+tResult<- t.test(total_killed~ group, 
+                 alternative = "greater",
+                 data = mutate(merged_income_df, group = fct_relevel(group, "Bottom ten", "Top ten")))|>
+  broom::tidy()
+
+```
+
+We can create a histogram displaying the null distribution obtained for the randomization test:
+
+
+```{r}
+tibble(value = permTs)|>
+  ggplot(aes(x = value))+
+  geom_histogram(color = "white")+
+  scale_y_continuous(expand = expansion(mult = c(0,.1)))+
+  geom_vline(xintercept = quantile(permTs, probs = .95), color = "red")+
+  geom_vline(xintercept = quantile(tResult$statistic, probs = .95), color = "dodgerblue", linetype = "dashed")+
+  labs(title = "Randomization test null distribution", y = "Frequency", x = "Test Statistic")+
+  theme_bw()
+
+```
+
+
+```{r}
+janitor::tabyl(permTs>= tResult$statistic)
+```
+
+We find that the p-value for this test is .518. This means that out of the 500 times of permuting the group memberships, there were 259 occurrences where we got a test statistic that was greater than or equal to our test data. This means that there isn't enough significant evidence for us to be able to conclude that the lower income states have a higher average number of people killed compared to the higher income states. 
+
+**Statistical Interpretation**: 
+
+We have evidence at the 5% significance level that the null hypothesis holds. That is, the average number of people killed from gun violence events across 2013 - 2018 within the bottom ten median income states is less than or equal to the average number of people killed within the top ten median income states. 
+
+
+# 5) Bootstrap Methods of Inference
+
+To demonstrate the utility of the bootstrap, we can conduct a confidence interval for the median percent poverty of a specific incident_id that was considered a mass shooting and was in 2017.
+
+We now implement a nonparametric bootstrap to construct a confidence interval of the population median.
+
+```{r}
+set.seed(1994)
+
+# Number of bootstrap samples
+B <- 10000
+#the median proportion poverty within the united states for 2017 where a mass shooting occured
+poverty<- merged_df|>
+  filter(year == "2017"& n_killed>3)|>
+  ungroup()
+
+# Instantiating matrix for bootstrap samples
+boots <- matrix(NA, nrow = nrow(poverty), ncol = B)
+
+# Sampling with replacement B times
+for(b in 1:B) {
+boots[, b] <- poverty|> 
+  slice_sample(prop = 1, replace = TRUE) |> 
+  dplyr::pull(prop_poverty)
+
+
+}
+
+
+
+```
+
+
+```{r}
+# Instantiating vector for bootstrap medians
+boot_medians <- vector(length = B)
+
+# Calculating medians for bootstrap samples
+for(b in 1:B) {
+boot_medians[b] <- median(boots[, b])
+}
+
+
+
+```
+
+Bootstrap distribution of the medians: 
+
+```{r}
+tibble(median = boot_medians)|>
+  ggplot(aes(x = median))+
+  geom_histogram(color = "black")+
+  scale_y_continuous(expand = expansion(mult = c(0,.1)))+
+  geom_vline(xintercept = quantile(boot_medians, probs = c(.025, .975)), color = "red")+
+  labs(title = "Nonparametric bootstrap distribution of medians",
+       y = "Count", x = "Median", caption = "Note: Red lines indicate the lower and upper bounds of a 95% bootstrap confidence interval")+
+  theme_bw()
+  
+```
+
+Nonparametric estimate of the standard error of the sample median:
+
+```{r}
+sd(boot_medians)
+```
+
+```{r}
+#symmetric 95% confidence interval for the population median:
+
+quantile(boot_medians, probs = c(.025, .975))
+
+```
+
+
+We are 95% confident that the proportion of poverty for a gun violence event that was identified as a mass shooting and occured in 2017 is between 13.2% and 14.7%, or more.
+
+
+# 6) Conclusions / Main Takeaways
+
+Overall, this project allowed students the opportunity to complete many meaningful procedures within the R programming language. Furthermore, we were able to implement many of the data visualization techniques that were taught within the course. I enjoyed being able to merge two datasets together and manipulate the large amount of information that was presented. 
+
+I felt that the permutation and nonparametric tests allowed us to gain a deeper understanding of gun violence within various communities. Further developments that could be completed relating to this project include interactive geospatial analysis within R packages such as `Leaflet` or analytic dashboarding. 
