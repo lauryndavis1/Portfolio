@@ -34,11 +34,6 @@ This project explores how environmental factors influence the descriptive langua
 
 To interpret our model predictions, we used SHAP (SHapley Additive exPlanations) on the FNN model. This allowed us to quantify the contribution of each input feature to individual tasting note predictions. Results confirmed that engineered features such as rainfall frequency, varietal identity, and temperature volatility were consistent drivers of both high-confidence and uncertain predictions—reinforcing the impact of careful preprocessing.
 
-## Output
-
-The full write-up, including model performance, SHAP plots, factor loadings, and scree analyses, is available here:
-
-**▶ [HTML Report](Wine_AI_Report.html)**
 
 ## Acknowledgments
 
