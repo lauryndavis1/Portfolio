@@ -1,6 +1,8 @@
 # Wine AI  
 Predicting Tasting Note Probabilities from Climate Time Series and Varietal Data
 
+**Note**: To view the full report, please download and open the `Wine_AI_Report.html` file locally in a web browser.
+
 This project explores how environmental factors influence the descriptive language used in wine reviews. Specifically, we modeled the probability of 1,416 tasting note keywords appearing in a wine's review using only climate time series data (from March 1 to November 1, 2022) and grape varietal identifiers. No text-based features from the reviews themselves were used in training, making the project an investigation into how climate conditions and grape genetics contribute to sensory language in wine.
 
 ## Project Overview
@@ -19,7 +21,7 @@ This project explores how environmental factors influence the descriptive langua
 
 - **Modeling Approaches**:
   - **LightGBM**:
-    - Used Tweedie loss and trained separate models across multiple word-cluster resolutions (For example: 30, 60, 90).
+    - Used Tweedie loss and trained separate models across multiple word-cluster resolutions (30, 60, 90).
     - Feature importance analyses (gain and split count) showed rainfall frequency, seasonal temperature patterns, and varietal entropy as key drivers of prediction.
   - **Feedforward Neural Network**:
     - Two hidden layers with LayerNorm, ReLU, and dropout. Used focal loss and L1 regularization to address label sparsity (~80% zero labels).
@@ -34,6 +36,9 @@ This project explores how environmental factors influence the descriptive langua
 
 To interpret our model predictions, we used SHAP (SHapley Additive exPlanations) on the FNN model. This allowed us to quantify the contribution of each input feature to individual tasting note predictions. Results confirmed that engineered features such as rainfall frequency, varietal identity, and temperature volatility were consistent drivers of both high-confidence and uncertain predictions—reinforcing the impact of careful preprocessing.
 
+## Output
+
+The full write-up, including model performance, SHAP plots, factor loadings, and scree analyses, is available in the HTML report.
 
 ## Acknowledgments
 
