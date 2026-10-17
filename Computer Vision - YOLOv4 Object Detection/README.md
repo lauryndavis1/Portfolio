@@ -7,4 +7,4 @@ The study connects these evaluation methods to a **Dockerized inference pipeline
 ### Case Study
 
 - **[Read the Technical Case Study (Markdown)](Case_Analysis.md)**
-- **[View the Full Paper (PDF)](Case_Analysis.pdf)**
+- **[PDF Version](Case_Analysis.pdf)**
